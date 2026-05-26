@@ -109,14 +109,14 @@ services:
       DOCUMIND_API_MAX_RETRIES: 2
       DOCUMIND_API_BACKOFF_FACTOR: 0.5
     ports:
-      - "8501:8501"
+      - "5173:5173"
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - documind-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5173/"]
       interval: 30s
       timeout: 10s
       retries: 5
