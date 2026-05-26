@@ -1,0 +1,19 @@
+{
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "type": "graph",
+      "title": "HTTP Request Rate",
+      "targets": [
+        {"expr": "sum(rate(documind_http_requests_total[1m])) by (endpoint)", "format": "time_series"}
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Retrieval Latency (s)",
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(documind_retrieval_latency_seconds_bucket[5m])) by (le))", "format": "time_series"}]
+    }
+  ],
+  "schemaVersion": 16,
+  "title": "DocuMind Retrieval Dashboard"
+}

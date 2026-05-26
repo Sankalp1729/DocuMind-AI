@@ -1,0 +1,83 @@
+import os
+from pathlib import Path
+
+
+def env_bool(name: str, default: bool = False) -> bool:
+	value = os.getenv(name)
+	if value is None:
+		return default
+	return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_int(name: str, default: int) -> int:
+	value = os.getenv(name)
+	return default if value is None else int(value)
+
+
+def env_float(name: str, default: float) -> float:
+	value = os.getenv(name)
+	return default if value is None else float(value)
+
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+DATA_DIR = BASE_DIR / "data"
+VECTOR_STORE_DIR = BASE_DIR / "vector_store"
+WORKSPACE_DIR = DATA_DIR / "workspaces"
+
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+OLLAMA_MODEL = os.getenv("DOCUMIND_OLLAMA_MODEL", "llama3")
+OLLAMA_BASE_URL = os.getenv("DOCUMIND_OLLAMA_BASE_URL", "http://localhost:11434")
+TOP_K = env_int("DOCUMIND_TOP_K", 3)
+LOG_LEVEL = os.getenv("DOCUMIND_LOG_LEVEL", "INFO")
+MAX_UPLOAD_MB = env_int("DOCUMIND_MAX_UPLOAD_MB", 50)
+STREAMING_TIMEOUT_SECONDS = env_int("DOCUMIND_STREAMING_TIMEOUT_SECONDS", 180)
+STREAMING_BUFFER_SIZE = env_int("DOCUMIND_STREAMING_BUFFER_SIZE", 4)
+DATABASE_URL = os.getenv("DOCUMIND_DATABASE_URL", f"sqlite:///{(DATA_DIR / 'documind.db').as_posix()}")
+REDIS_URL = os.getenv("DOCUMIND_REDIS_URL", "redis://localhost:6379/0")
+REDIS_ENABLED = env_bool("DOCUMIND_REDIS_ENABLED", True)
+REDIS_KEY_PREFIX = os.getenv("DOCUMIND_REDIS_KEY_PREFIX", "documind")
+REDIS_CACHE_TTL_SECONDS = env_int("DOCUMIND_REDIS_CACHE_TTL_SECONDS", 900)
+REDIS_SESSION_TTL_SECONDS = env_int("DOCUMIND_REDIS_SESSION_TTL_SECONDS", 86400)
+REDIS_STREAM_TTL_SECONDS = env_int("DOCUMIND_REDIS_STREAM_TTL_SECONDS", 1800)
+REDIS_RETRIEVAL_CACHE_TTL_SECONDS = env_int("DOCUMIND_REDIS_RETRIEVAL_CACHE_TTL_SECONDS", 900)
+REDIS_ANALYTICS_TTL_SECONDS = env_int("DOCUMIND_REDIS_ANALYTICS_TTL_SECONDS", 3600)
+DB_ECHO = env_bool("DOCUMIND_DB_ECHO", False)
+DB_POOL_SIZE = env_int("DOCUMIND_DB_POOL_SIZE", 5)
+DB_MAX_OVERFLOW = env_int("DOCUMIND_DB_MAX_OVERFLOW", 10)
+ADMIN_API_KEY = os.getenv("DOCUMIND_ADMIN_API_KEY", "dev-admin-key")
+JWT_SECRET_KEY = os.getenv("DOCUMIND_JWT_SECRET_KEY", "change-me-in-production")
+JWT_ALGORITHM = os.getenv("DOCUMIND_JWT_ALGORITHM", "HS256")
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = env_int("DOCUMIND_JWT_ACCESS_TOKEN_EXPIRE_MINUTES", 60)
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = env_int("DOCUMIND_JWT_REFRESH_TOKEN_EXPIRE_DAYS", 30)
+GOOGLE_CLIENT_ID = os.getenv("DOCUMIND_GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("DOCUMIND_GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv("DOCUMIND_GOOGLE_REDIRECT_URI", "")
+AUTH_COOKIE_NAME = os.getenv("DOCUMIND_AUTH_COOKIE_NAME", "documind_session")
+AUTH_COOKIE_REFRESH_NAME = os.getenv("DOCUMIND_AUTH_COOKIE_REFRESH_NAME", "documind_refresh")
+AUTH_COOKIE_SECURE = env_bool("DOCUMIND_AUTH_COOKIE_SECURE", True)
+AUTH_COOKIE_SAMESITE = os.getenv("DOCUMIND_AUTH_COOKIE_SAMESITE", "lax")
+AUTH_PUBLIC_PATHS = tuple(
+	value.strip()
+	for value in os.getenv("DOCUMIND_AUTH_PUBLIC_PATHS", "/health,/auth,/docs,/openapi.json,/redoc").split(",")
+	if value.strip()
+)
+AUTH_REQUIRED_DEFAULT = env_bool("DOCUMIND_AUTH_REQUIRED_DEFAULT", False)
+API_KEY_HEADER_NAME = os.getenv("DOCUMIND_API_KEY_HEADER_NAME", "X-API-Key")
+API_KEY_PREFIX = os.getenv("DOCUMIND_API_KEY_PREFIX", "documind")
+TENANT_HEADER_NAME = os.getenv("DOCUMIND_TENANT_HEADER_NAME", "X-Workspace-ID")
+USER_HEADER_NAME = os.getenv("DOCUMIND_USER_HEADER_NAME", "X-User-ID")
+ENABLE_AUTH = env_bool("DOCUMIND_ENABLE_AUTH", False)
+ENABLE_RATE_LIMITING = env_bool("DOCUMIND_ENABLE_RATE_LIMITING", True)
+ENABLE_CONVERSATION_PERSISTENCE = env_bool("DOCUMIND_ENABLE_CONVERSATION_PERSISTENCE", True)
+ENABLE_METRICS = env_bool("DOCUMIND_ENABLE_METRICS", True)
+ENABLE_ANALYTICS_PERSISTENCE = env_bool("DOCUMIND_ENABLE_ANALYTICS_PERSISTENCE", True)
+ENABLE_REDIS_CACHE = env_bool("DOCUMIND_ENABLE_REDIS_CACHE", True)
+ENABLE_HYBRID_RETRIEVAL = env_bool("DOCUMIND_ENABLE_HYBRID_RETRIEVAL", False)
+ENABLE_AGENTIC_RAG = env_bool("DOCUMIND_ENABLE_AGENTIC_RAG", True)
+ENABLE_ADMIN_ENDPOINTS = env_bool("DOCUMIND_ENABLE_ADMIN_ENDPOINTS", True)
+RATE_LIMIT_PER_MINUTE = env_int("DOCUMIND_RATE_LIMIT_PER_MINUTE", 60)
+REQUEST_TIMEOUT_SECONDS = env_int("DOCUMIND_REQUEST_TIMEOUT_SECONDS", 120)
+VECTOR_BACKEND = os.getenv("DOCUMIND_VECTOR_BACKEND", "faiss")  # supported: faiss, qdrant
+QDRANT_URL = os.getenv("DOCUMIND_QDRANT_URL", "localhost")
+QDRANT_PORT = env_int("DOCUMIND_QDRANT_PORT", 6333)
+QDRANT_PREFER_GRPC = env_bool("DOCUMIND_QDRANT_PREFER_GRPC", False)

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: documind-config
+data:
+  DOCUMIND_OLLAMA_MODEL: llama3
+  DOCUMIND_ENABLE_AUTH: "true"
+  DOCUMIND_ENABLE_RATE_LIMITING: "true"
+  DOCUMIND_ENABLE_METRICS: "true"
+  DOCUMIND_ENABLE_ANALYTICS_PERSISTENCE: "true"
+  DOCUMIND_VECTOR_BACKEND: qdrant
+  DOCUMIND_QDRANT_URL: qdrant
+  DOCUMIND_QDRANT_PORT: "6333"
+  DOCUMIND_OTLP_ENDPOINT: http://otel-collector.observability:4318
+  DOCUMIND_REDIS_URL: redis://redis:6379/0
+  DOCUMIND_DATABASE_URL: postgresql+psycopg2://documind:documind@postgres:5432/documind

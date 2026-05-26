@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: {{ include "documind.namespace" . }}
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: {{ .Values.service.frontendPort }}
+      targetPort: {{ .Values.service.frontendPort }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: {{ include "documind.namespace" . }}
+spec:
+  replicas: {{ .Values.replicaCount.frontend }}
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: {{ .Values.images.frontend }}
+          ports:
+            - containerPort: {{ .Values.service.frontendPort }}
+          env:
+            - name: DOCUMIND_API_BASE_URL
+              value: http://backend:{{ .Values.service.backendPort }}
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: {{ .Values.service.frontendPort }}
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: {{ .Values.service.frontendPort }}

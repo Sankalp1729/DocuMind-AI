@@ -1,0 +1,132 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: documind-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DOCUMIND_POSTGRES_DB:-documind}
+      POSTGRES_USER: ${DOCUMIND_POSTGRES_USER:-documind}
+      POSTGRES_PASSWORD: ${DOCUMIND_POSTGRES_PASSWORD:-documind}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - documind-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DOCUMIND_POSTGRES_USER:-documind} -d ${DOCUMIND_POSTGRES_DB:-documind}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: documind-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - documind-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: documind-ollama
+    restart: unless-stopped
+    command: >
+      sh -c "ollama serve &
+      until ollama list >/dev/null 2>&1; do sleep 1; done;
+      ollama pull llama3;
+      wait"
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - documind-network
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: documind-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DOCUMIND_OLLAMA_BASE_URL: http://ollama:11434
+      DOCUMIND_OLLAMA_MODEL: llama3
+      DOCUMIND_DATABASE_URL: postgresql+psycopg2://${DOCUMIND_POSTGRES_USER:-documind}:${DOCUMIND_POSTGRES_PASSWORD:-documind}@postgres:5432/${DOCUMIND_POSTGRES_DB:-documind}
+      DOCUMIND_REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+    volumes:
+      - ./data:/app/data
+      - ./vector_store:/app/vector_store
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    networks:
+      - documind-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: documind-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DOCUMIND_API_BASE_URL: http://backend:8000
+      DOCUMIND_API_TIMEOUT_SECONDS: 120
+      DOCUMIND_API_MAX_RETRIES: 2
+      DOCUMIND_API_BACKOFF_FACTOR: 0.5
+    ports:
+      - "8501:8501"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - documind-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  postgres_data:
+  redis_data:
+  ollama_data:
+
+networks:
+  documind-network:
+    driver: bridge

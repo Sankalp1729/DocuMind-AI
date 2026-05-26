@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: {{ include "documind.namespace" . }}
+spec:
+  selector:
+    app: ollama
+  ports:
+    - port: {{ .Values.service.ollamaPort }}
+      targetPort: {{ .Values.service.ollamaPort }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: {{ include "documind.namespace" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: {{ .Values.images.ollama }}
+          ports:
+            - containerPort: {{ .Values.service.ollamaPort }}
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+      volumes:
+        - name: models
+          emptyDir: {}

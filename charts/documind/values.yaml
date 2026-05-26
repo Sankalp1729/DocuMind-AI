@@ -1,0 +1,57 @@
+global:
+  namespace: documind
+  ingressClassName: nginx
+  host: documind.local
+
+images:
+  backend: ghcr.io/documind-ai/documind-backend:latest
+  frontend: ghcr.io/documind-ai/documind-frontend:latest
+  postgres: postgres:16-alpine
+  redis: redis:7-alpine
+  ollama: ollama/ollama:latest
+  qdrant: qdrant/qdrant:latest
+
+replicaCount:
+  backend: 2
+  frontend: 2
+
+service:
+  backendPort: 8000
+  frontendPort: 8501
+  postgresPort: 5432
+  redisPort: 6379
+  ollamaPort: 11434
+  qdrantPort: 6333
+
+env:
+  vectorBackend: qdrant
+  ollamaModel: llama3
+  enableAuth: "true"
+  enableMetrics: "true"
+  enableAnalyticsPersistence: "true"
+  otlpEndpoint: http://otel-collector.observability:4318
+
+secrets:
+  adminApiKey: change-me
+  jwtSecretKey: change-me
+  postgresPassword: change-me
+  googleClientId: ""
+  googleClientSecret: ""
+  googleRedirectUri: ""
+
+resources: {}
+
+autoscaling:
+  backend:
+    minReplicas: 2
+    maxReplicas: 6
+    cpuUtilization: 70
+  frontend:
+    minReplicas: 2
+    maxReplicas: 4
+    cpuUtilization: 70
+
+storage:
+  postgres: 20Gi
+  qdrant: 20Gi
+  ollama: 20Gi

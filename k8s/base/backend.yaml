@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/documind-ai/documind-backend:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: documind-config
+            - secretRef:
+                name: documind-secrets
+          env:
+            - name: DOCUMIND_OLLAMA_BASE_URL
+              value: http://ollama:11434
+            - name: DOCUMIND_QDRANT_URL
+              value: http://qdrant:6333
+            - name: PYTHONPATH
+              value: /app
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: documind-config
+  namespace: {{ include "documind.namespace" . }}
+data:
+  DOCUMIND_OLLAMA_MODEL: {{ .Values.env.ollamaModel | quote }}
+  DOCUMIND_ENABLE_AUTH: {{ .Values.env.enableAuth | quote }}
+  DOCUMIND_ENABLE_METRICS: {{ .Values.env.enableMetrics | quote }}
+  DOCUMIND_ENABLE_ANALYTICS_PERSISTENCE: {{ .Values.env.enableAnalyticsPersistence | quote }}
+  DOCUMIND_VECTOR_BACKEND: {{ .Values.env.vectorBackend | quote }}
+  DOCUMIND_OTLP_ENDPOINT: {{ .Values.env.otlpEndpoint | quote }}
+  DOCUMIND_REDIS_URL: redis://redis:6379/0
+  DOCUMIND_DATABASE_URL: postgresql+psycopg2://documind:{{ .Values.secrets.postgresPassword }}@postgres:5432/documind
+  DOCUMIND_QDRANT_URL: http://qdrant:6333
