@@ -1,23 +1,22 @@
-FROM node:20-alpine AS build
+FROM python:3.11-slim
 
-WORKDIR /app/frontend/.streamlit
+ENV PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONUNBUFFERED=1 \
+	PIP_NO_CACHE_DIR=1 \
+	PYTHONPATH=/app
 
-COPY frontend/.streamlit/package*.json ./
+WORKDIR /app
 
-RUN npm install
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends build-essential curl \
+	&& rm -rf /var/lib/apt/lists/*
 
-COPY frontend/.streamlit ./
+COPY frontend/requirements.txt /tmp/requirements.txt
+RUN pip install --upgrade pip \
+	&& pip install -r /tmp/requirements.txt
 
-RUN npm run build
+COPY frontend /app/frontend
 
-FROM node:20-alpine AS runtime
+EXPOSE 8501
 
-WORKDIR /app/frontend/.streamlit
-
-RUN npm install -g serve
-
-COPY --from=build /app/frontend/.streamlit/dist ./dist
-
-EXPOSE 5173
-
-CMD ["serve", "-s", "dist", "-l", "5173"]
+CMD ["streamlit", "run", "frontend/app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]

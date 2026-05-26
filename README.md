@@ -4,7 +4,7 @@ DocuMind AI is an enterprise RAG workspace for document chat, retrieval diagnost
 
 ## What It Ships
 
-- Premium Vite front end with a control-plane cockpit
+- Premium Streamlit front end with a control-plane cockpit
 - FastAPI backend with retrieval caching, token usage tracking, telemetry, and admin summaries
 - Feature-flagged production knobs for agentic RAG, hybrid retrieval, metrics, and Redis-backed caching
 - Billing and quota scaffolding driven by persisted usage data
@@ -15,7 +15,7 @@ DocuMind AI is an enterprise RAG workspace for document chat, retrieval diagnost
 
 ```mermaid
 flowchart LR
-	U[User] --> FE[Vite Frontend]
+	U[User] --> FE[Streamlit Frontend]
 	FE --> API[FastAPI Backend]
 	API --> RAG[RAG + Agentic RAG]
 	RAG --> VS[Vector Store]
@@ -57,9 +57,7 @@ uvicorn backend.api:app --reload
 Frontend:
 
 ```powershell
-Set-Location frontend/.streamlit
-npm install
-npm run dev
+streamlit run frontend/app.py
 ```
 
 Docker stack:
@@ -113,4 +111,4 @@ Copy your environment file and configure the production knobs that matter most:
 
 - `scripts/enterprise_demo.py` runs a live smoke-test walkthrough
 - `scripts/load_test.py` benchmarks the chat endpoint under concurrency
-- `frontend/.streamlit/` contains the premium frontend bundle and UI shell
+- `frontend/app.py` is the Streamlit frontend entrypoint linked to the backend API
