@@ -18,14 +18,30 @@ def _api_client() -> ApiClient:
 
 
 def main() -> None:
-    st.set_page_config(page_title=APP_TITLE, page_icon="📄", layout="wide")
+    st.set_page_config(page_title=APP_TITLE, page_icon="📄", layout="wide", initial_sidebar_state="collapsed")
     initialize_session_state()
 
     st.markdown(
         """
         <style>
+        [data-testid="stSidebar"],
+        [data-testid="stHeader"],
+        footer,
+        #MainMenu {
+            display: none !important;
+        }
+        .block-container {
+            padding: 0 !important;
+            max-width: 100% !important;
+        }
+        .main .block-container {
+            padding-top: 0 !important;
+        }
+        .stApp {
+            background: #08111f;
+        }
         .documind-shell {
-            margin-bottom: 1rem;
+            margin: 1rem 1rem 0.75rem;
             padding: 1rem 1.15rem;
             border-radius: 18px;
             background: linear-gradient(135deg, rgba(11, 21, 38, 0.95), rgba(8, 17, 31, 0.9));
@@ -50,31 +66,33 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    with st.sidebar:
-        st.markdown("### Backend Link")
-        st.session_state.api_base_url = st.text_input("Backend URL", value=st.session_state.api_base_url)
+    left, right = st.columns([1.8, 1])
+    with left:
+        st.markdown(
+            """
+            <div class="documind-shell">
+              <div class="documind-title">DocuMind AI</div>
+              <div class="documind-subtitle">The new UI/UX design bundle is shown below, and the backend stays linked through Streamlit.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with right:
+        st.markdown("<div class='documind-shell'>", unsafe_allow_html=True)
+        st.markdown("**Backend**")
+        st.session_state.api_base_url = st.text_input("Backend URL", value=st.session_state.api_base_url, label_visibility="collapsed")
         try:
             health = _api_client().health()
             st.success(health.get("message", "Backend healthy"))
             st.caption(f"Vector store ready: {health.get('vector_store_ready', False)}")
         except ApiClientError as exc:
             st.error(str(exc))
-
-        st.markdown("### Design Source")
+        st.markdown("**Design source**")
         st.code(DESIGN_URL, language="text")
-        st.caption("This Streamlit page now embeds the new design bundle instead of the older custom shell.")
+        st.caption("Streamlit is now a wrapper around the design bundle, not the old shell.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown(
-        """
-        <div class="documind-shell">
-          <div class="documind-title">DocuMind AI</div>
-          <div class="documind-subtitle">The new UI/UX design bundle is shown below, and the backend stays linked through the Streamlit sidebar.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    components.iframe(DESIGN_URL, height=1200, scrolling=True)
+    components.iframe(DESIGN_URL, width=1600, height=1200, scrolling=True)
 
 
 if __name__ == "__main__":
