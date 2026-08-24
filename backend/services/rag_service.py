@@ -103,12 +103,20 @@ class RagService:
             "groundedness": groundedness,
         }
 
-    def retrieve(self, question: str) -> Optional[Tuple]:
-        """Hybrid retrieve: use RetrievalService if available, otherwise fall back to vector store."""
+    def retrieve(self, question: str, top_k: Optional[int] = None) -> Optional[Tuple]:
+        """Retrieve ranked context using the requested K, defaulting to the app's TOP_K.
+
+        Keeping ``top_k`` explicit makes benchmark runs reproducible and prevents
+        evaluation code from silently using a different K than the one being measured.
+        """
+        effective_top_k = TOP_K if top_k is None else top_k
+        if effective_top_k < 1:
+            raise ValueError("top_k must be >= 1")
+
         start_time = time.perf_counter()
 
         if self.cache_service is not None:
-            cached_payload = self.cache_service.get_retrieval_cache(question, TOP_K)
+            cached_payload = self.cache_service.get_retrieval_cache(question, effective_top_k)
             if cached_payload:
                 from langchain_core.documents import Document
 
@@ -118,12 +126,12 @@ class RagService:
                 return context, cached_results, retrieval_explanation
 
         if self.retrieval_service:
-            # Use hybrid retrieval with RetrievalService
-            results, retrieval_info = self.retrieval_service.hybrid_retrieve(question, top_k=TOP_K)
-            
+            # Use hybrid retrieval with the explicitly requested K.
+            results, retrieval_info = self.retrieval_service.hybrid_retrieve(question, top_k=effective_top_k)
+
             if not results:
                 return None
-            
+
             # Build retrieval explanation
             retrieval_latency_ms = (time.perf_counter() - start_time) * 1000
             retrieval_explanation = RetrievalExplanation(
@@ -140,12 +148,12 @@ class RagService:
                 stage_timings_ms=retrieval_info.get("stage_timings_ms", {}),
                 latency_ms=retrieval_latency_ms,
             )
-            
+
             context = "\n\n".join(doc.page_content for doc in results)
             if self.cache_service is not None:
                 self.cache_service.set_retrieval_cache(
                     question,
-                    TOP_K,
+                    effective_top_k,
                     {
                         "context": context,
                         "documents": [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in results],
@@ -153,42 +161,41 @@ class RagService:
                     },
                 )
             return context, results, retrieval_explanation
-        
-        else:
-            # Fallback to basic vector search
-            vector_store = self.vector_store_service.get_vector_store()
 
-            if vector_store is None:
-                return None
+        # Fallback to basic vector search
+        vector_store = self.vector_store_service.get_vector_store()
 
-            results = vector_store.similarity_search(question, k=TOP_K)
-            context = "\n\n".join(doc.page_content for doc in results)
-            
-            retrieval_latency_ms = (time.perf_counter() - start_time) * 1000
-            retrieval_explanation = RetrievalExplanation(
-                query=question,
-                expanded_query=None,
-                trace_id=None,
-                num_dense_candidates=len(results),
-                num_sparse_candidates=0,
-                num_fused=0,
-                num_reranked=len(results),
-                origins=[],
-                retrieval_confidence=0.0,
-                hallucination_risk="high",
-                stage_timings_ms={},
-                latency_ms=retrieval_latency_ms,
+        if vector_store is None:
+            return None
+
+        results = vector_store.similarity_search(question, k=effective_top_k)
+        context = "\n\n".join(doc.page_content for doc in results)
+
+        retrieval_latency_ms = (time.perf_counter() - start_time) * 1000
+        retrieval_explanation = RetrievalExplanation(
+            query=question,
+            expanded_query=None,
+            trace_id=None,
+            num_dense_candidates=len(results),
+            num_sparse_candidates=0,
+            num_fused=0,
+            num_reranked=len(results),
+            origins=[],
+            retrieval_confidence=0.0,
+            hallucination_risk="high",
+            stage_timings_ms={},
+            latency_ms=retrieval_latency_ms,
+        )
+
+        if self.cache_service is not None:
+            self.cache_service.set_retrieval_cache(
+                question,
+                effective_top_k,
+                {
+                    "context": context,
+                    "documents": [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in results],
+                    "retrieval_explanation": retrieval_explanation.model_dump(mode="json"),
+                },
             )
 
-            if self.cache_service is not None:
-                self.cache_service.set_retrieval_cache(
-                    question,
-                    TOP_K,
-                    {
-                        "context": context,
-                        "documents": [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in results],
-                        "retrieval_explanation": retrieval_explanation.model_dump(mode="json"),
-                    },
-                )
-            
-            return context, results, retrieval_explanation
+        return context, results, retrieval_explanation
