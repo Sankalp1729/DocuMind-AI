@@ -18,8 +18,8 @@ def test_average_precision_rewards_early_relevant_results() -> None:
 
 def test_average_precision_penalizes_missed_relevant_documents() -> None:
     assert average_precision([1, 0, 0], {1, 2}) == 0.5
-    assert average_precision([1, 0, 2], {1, 2}) == 1.0
-    assert average_precision([1, 0, 2], {1, 2, 3}) == 11 / 18
+    assert average_precision([1, 0, 2], {1, 2}) == 5 / 6
+    assert average_precision([1, 0, 2], {1, 2, 3}) == 5 / 9
 
 
 def test_precision_and_recall_are_bounded() -> None:
