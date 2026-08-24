@@ -83,7 +83,7 @@ def _recall_at_k(relevance_flags: List[int], relevant_count: int, k: int) -> flo
 
 
 def _average_precision(relevance_flags: List[int], relevant_count: int) -> float:
-    """Compute AP from the ranked relevance flags, not mean precision."""
+    """Compute AP from ranked relevance flags, not mean precision."""
     if not relevance_flags or relevant_count <= 0:
         return 0.0
 
@@ -130,6 +130,7 @@ def run_benchmark(
     groundedness_scorer = GroundednessScorer()
     benchmark_started = time.perf_counter()
     query_results: List[BenchmarkQueryResult] = []
+    average_precisions: List[float] = []
 
     total_retrieval_latency = 0.0
     total_generation_latency = 0.0
@@ -159,6 +160,7 @@ def run_benchmark(
                     answer_preview=None,
                 )
             )
+            average_precisions.append(0.0)
             hallucination_count += 1
             continue
 
@@ -191,7 +193,7 @@ def run_benchmark(
         relevant_count = _relevant_target_count(query_spec)
         precision_at_k = _precision_at_k(relevance_flags, top_k)
         recall_at_k = _recall_at_k(relevance_flags, relevant_count, top_k)
-        average_precision = _average_precision(relevance_flags[:top_k], relevant_count)
+        average_precisions.append(_average_precision(relevance_flags[:top_k], relevant_count))
         mrr = _mrr(relevance_flags[:top_k])
         ndcg = _ndcg_at_k(relevance_flags, top_k)
 
@@ -224,37 +226,29 @@ def run_benchmark(
             )
         )
 
+    metric_key_precision = f"precision_at_{top_k}"
+    metric_key_recall = f"recall_at_{top_k}"
     if query_results:
         retrieval_metrics = {
-            f"precision_at_{top_k}": sum(result.precision_at_k for result in query_results) / len(query_results),
-            f"recall_at_{top_k}": sum(result.recall_at_k for result in query_results) / len(query_results),
-            "map": sum(
-                _average_precision(
-                    [1 if source in {s.lower() for s in query.relevant_sources} else 0 for source in result.retrieved_sources],
-                    len(query.relevant_sources),
-                )
-                for result, query in zip(query_results, dataset.queries)
-            ) / len(query_results),
+            metric_key_precision: sum(result.precision_at_k for result in query_results) / len(query_results),
+            metric_key_recall: sum(result.recall_at_k for result in query_results) / len(query_results),
+            "map": sum(average_precisions) / len(average_precisions) if average_precisions else 0.0,
             "mrr": sum(result.mrr for result in query_results) / len(query_results),
             "ndcg": sum(result.ndcg for result in query_results) / len(query_results),
         }
     else:
         retrieval_metrics = {
-            f"precision_at_{top_k}": 0.0,
-            f"recall_at_{top_k}": 0.0,
+            metric_key_precision: 0.0,
+            metric_key_recall: 0.0,
             "map": 0.0,
             "mrr": 0.0,
             "ndcg": 0.0,
         }
 
-    # Preserve the existing precision_at_10 / recall_at_10 API contract when
-    # callers use another K, while exposing the actual configured K as well.
-    if top_k == 10:
-        retrieval_metrics["precision_at_10"] = retrieval_metrics["precision_at_10"]
-        retrieval_metrics["recall_at_10"] = retrieval_metrics["recall_at_10"]
-    else:
-        retrieval_metrics["precision_at_10"] = retrieval_metrics[f"precision_at_{top_k}"]
-        retrieval_metrics["recall_at_10"] = retrieval_metrics[f"recall_at_{top_k}"]
+    # Keep the existing admin/leaderboard API contract while exposing the
+    # actual configured K for callers that need it.
+    retrieval_metrics["precision_at_10"] = retrieval_metrics[metric_key_precision]
+    retrieval_metrics["recall_at_10"] = retrieval_metrics[metric_key_recall]
 
     benchmark_id = benchmark_id or f"{dataset.dataset_name}-{int(time.time())}"
     total_latency_ms = (time.perf_counter() - benchmark_started) * 1000
