@@ -18,6 +18,16 @@ python scripts/run_rag_benchmark.py --dataset example_rag_benchmark --top-k 5 --
 
 The benchmark records the exact `top_k`, query-level retrieval results, ranking metrics, groundedness, hallucination risk, and latency.
 
+## Multi-cutoff experiment matrix
+
+To evaluate the same corpus and relevance judgments at several retrieval cutoffs:
+
+```powershell
+python scripts/run_benchmark_matrix.py --dataset example_rag_benchmark --top-k 3 5 10
+```
+
+The matrix runner persists one JSON result per cutoff and prints a compact comparison table. This makes it possible to choose a retrieval budget using measured quality/latency trade-offs rather than selecting K arbitrarily.
+
 ## Metrics
 
 The benchmark layer reports:
@@ -35,7 +45,7 @@ The benchmark layer reports:
 
 `top_k` is validated and applied consistently to ranking metrics. Recall is bounded to `[0, 1]`, and AP uses the total number of known relevant targets as its denominator so that missed evidence lowers the score.
 
-The legacy `precision_at_10` and `recall_at_10` keys remain available for the admin/leaderboard contract, even when a benchmark is configured with another K.
+The benchmark stores `precision_at_<K>` and `recall_at_<K>` using the actual cutoff. Legacy `precision_at_10` and `recall_at_10` keys are emitted only when the benchmark actually runs with `top_k=10`; this prevents a K=3 or K=5 result from being mislabeled as an @10 score.
 
 ## Experiment protocol
 
