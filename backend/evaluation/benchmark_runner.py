@@ -68,6 +68,8 @@ def _relevant_target_count(query_spec) -> int:
 
 
 def _precision_at_k(relevance_flags: List[int], k: int) -> float:
+    if k < 1:
+        raise ValueError("k must be >= 1")
     top_flags = relevance_flags[:k]
     if not top_flags:
         return 0.0
@@ -75,7 +77,9 @@ def _precision_at_k(relevance_flags: List[int], k: int) -> float:
 
 
 def _recall_at_k(relevance_flags: List[int], relevant_count: int, k: int) -> float:
-    if relevant_count == 0:
+    if k < 1:
+        raise ValueError("k must be >= 1")
+    if relevant_count <= 0:
         return 0.0
     return min(1.0, sum(relevance_flags[:k]) / relevant_count)
 
@@ -92,8 +96,7 @@ def _average_precision(relevance_flags: List[int], relevant_count: int) -> float
             hits += 1
             score += hits / rank
 
-    # Missing relevant targets must reduce AP; do not normalize by hits alone.
-    return score / relevant_count if hits else 0.0
+    return min(1.0, score / relevant_count) if hits else 0.0
 
 
 def _mrr(relevance_flags: List[int]) -> float:
@@ -104,6 +107,8 @@ def _mrr(relevance_flags: List[int]) -> float:
 
 
 def _ndcg_at_k(relevance_flags: List[int], k: int) -> float:
+    if k < 1:
+        raise ValueError("k must be >= 1")
     ranked = relevance_flags[:k]
     dcg = sum(rel / math.log2(index + 2) for index, rel in enumerate(ranked))
     ideal = sorted(relevance_flags, reverse=True)[:k]
@@ -139,7 +144,8 @@ def run_benchmark(
 
     for query_spec in dataset.queries:
         retrieval_started = time.perf_counter()
-        retrieval_result = rag_service.retrieve(query_spec.question)
+        # The benchmark cutoff must be the same cutoff used by the RAG service.
+        retrieval_result = rag_service.retrieve(query_spec.question, top_k=top_k)
         if not retrieval_result:
             query_results.append(
                 BenchmarkQueryResult(
@@ -244,8 +250,7 @@ def run_benchmark(
             "ndcg": 0.0,
         }
 
-    # Keep the existing admin/leaderboard API contract while exposing the
-    # actual configured K for callers that need it.
+    # Preserve the existing admin/leaderboard contract while exposing the actual K.
     retrieval_metrics["precision_at_10"] = retrieval_metrics[metric_key_precision]
     retrieval_metrics["recall_at_10"] = retrieval_metrics[metric_key_recall]
 
