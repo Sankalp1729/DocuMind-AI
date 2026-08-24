@@ -18,7 +18,8 @@ def test_average_precision_rewards_early_relevant_results() -> None:
 
 def test_average_precision_penalizes_missed_relevant_documents() -> None:
     assert average_precision([1, 0, 0], {1, 2}) == 0.5
-    assert average_precision([1, 0, 2], {1, 2}) == 5 / 6
+    assert average_precision([1, 0, 2], {1, 2}) == 1.0
+    assert average_precision([1, 0, 2], {1, 2, 3}) == 11 / 18
 
 
 def test_precision_and_recall_are_bounded() -> None:
@@ -45,6 +46,8 @@ def test_metric_functions_reject_invalid_k() -> None:
         recall_at_k([1], {1}, 0)
     with pytest.raises(ValueError):
         ndcg_at_k([1], {1}, 0)
+    with pytest.raises(ValueError):
+        Evaluator(k=0)
 
 
 def test_evaluator_validates_collection_lengths() -> None:
