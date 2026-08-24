@@ -38,6 +38,7 @@ def _grounded(monkeypatch) -> None:
             "confidence": 1.0,
             "hallucination_risk": "low",
             "unsupported_claims": [],
+            "reasoning": "The answer is directly supported by the retrieved passage.",
         },
     )
 
