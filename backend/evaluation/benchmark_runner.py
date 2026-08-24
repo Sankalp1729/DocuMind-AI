@@ -131,7 +131,7 @@ def run_benchmark(
     benchmark_started = time.perf_counter()
     query_results: List[BenchmarkQueryResult] = []
     average_precisions: List[float] = []
-    total_retrieval_latency = total_generation_latency = total_reranking_latency = 0.0
+    total_retrieval_latency = total_reranking_latency = 0.0
     grounded_count = hallucination_count = 0
 
     for query_spec in dataset.queries:
@@ -160,7 +160,6 @@ def run_benchmark(
         generation_started = time.perf_counter()
         answer_text = answer_fn(context, query_spec.question)
         generation_latency = (time.perf_counter() - generation_started) * 1000
-        total_generation_latency += generation_latency
 
         sources = [
             {"source": doc.metadata.get("source_file"), "page": doc.metadata.get("page"), "preview": doc.page_content[:500]}
@@ -203,6 +202,7 @@ def run_benchmark(
         "mrr": sum(r.mrr for r in query_results) / count if count else 0.0,
         "ndcg": sum(r.ndcg for r in query_results) / count if count else 0.0,
     }
+    # Keep legacy dashboard fields while also retaining the exact configured K.
     retrieval_metrics["precision_at_10"] = retrieval_metrics[metric_key_precision]
     retrieval_metrics["recall_at_10"] = retrieval_metrics[metric_key_recall]
 
@@ -210,7 +210,7 @@ def run_benchmark(
     num_queries = len(dataset.queries)
     return BenchmarkResult(
         benchmark_id=benchmark_id, dataset_name=dataset.dataset_name, timestamp=datetime.now(timezone.utc),
-        num_queries=num_queries, retrieval_metrics=retrieval_metrics,
+        num_queries=num_queries, top_k=top_k, retrieval_metrics=retrieval_metrics,
         retrieval_latency_ms=total_retrieval_latency / max(num_queries, 1),
         reranking_latency_ms=total_reranking_latency / max(num_queries, 1) if total_reranking_latency else 0.0,
         total_latency_ms=(time.perf_counter() - benchmark_started) * 1000,
