@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -62,8 +62,6 @@ def _relevant_target_count(query_spec) -> int:
     source_targets = {source.lower() for source in query_spec.relevant_sources}
     page_targets = {page for page in query_spec.relevant_pages}
 
-    # A source and a page can describe the same evidence, so prefer the more
-    # concrete source/page dimension instead of summing both lists.
     if source_targets:
         return len(source_targets)
     return len(page_targets)
@@ -83,7 +81,7 @@ def _recall_at_k(relevance_flags: List[int], relevant_count: int, k: int) -> flo
 
 
 def _average_precision(relevance_flags: List[int], relevant_count: int) -> float:
-    """Compute AP from ranked relevance flags, not mean precision."""
+    """Compute AP from ranked relevance flags using all known relevant targets."""
     if not relevance_flags or relevant_count <= 0:
         return 0.0
 
@@ -94,7 +92,8 @@ def _average_precision(relevance_flags: List[int], relevant_count: int) -> float
             hits += 1
             score += hits / rank
 
-    return score / min(relevant_count, hits) if hits else 0.0
+    # Missing relevant targets must reduce AP; do not normalize by hits alone.
+    return score / relevant_count if hits else 0.0
 
 
 def _mrr(relevance_flags: List[int]) -> float:
