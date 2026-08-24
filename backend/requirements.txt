@@ -40,3 +40,4 @@ opentelemetry-instrumentation-fastapi
 opentelemetry-exporter-otlp
 python-json-logger
 sentry-sdk
+pytest
