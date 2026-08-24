@@ -2,6 +2,22 @@
 
 DocuMind AI treats retrieval quality as an engineering metric rather than a subjective demo result.
 
+## Reproducible benchmark
+
+Run the same retrieval stack used by the API against a versioned dataset:
+
+```powershell
+python scripts/run_rag_benchmark.py --dataset example_rag_benchmark --top-k 5
+```
+
+Write a JSON result to a custom location when needed:
+
+```powershell
+python scripts/run_rag_benchmark.py --dataset example_rag_benchmark --top-k 5 --output data/evaluations/manual_benchmark.json
+```
+
+The benchmark records the exact `top_k`, query-level retrieval results, ranking metrics, groundedness, hallucination risk, and latency.
+
 ## Metrics
 
 The benchmark layer reports:
@@ -20,6 +36,19 @@ The benchmark layer reports:
 `top_k` is validated and applied consistently to ranking metrics. Recall is bounded to `[0, 1]`, and AP uses the total number of known relevant targets as its denominator so that missed evidence lowers the score.
 
 The legacy `precision_at_10` and `recall_at_10` keys remain available for the admin/leaderboard contract, even when a benchmark is configured with another K.
+
+## Experiment protocol
+
+When comparing retrieval strategies, keep these fixed unless the variable is intentionally under test:
+
+1. benchmark dataset and relevance judgments;
+2. document corpus and ingestion/chunking configuration;
+3. embedding model;
+4. answer-generation model and prompt;
+5. evaluation cutoff `top_k`;
+6. environment/hardware when comparing latency.
+
+Change one retrieval component at a time, persist every result, and compare quality against latency. Do not publish the example fixture's output as production performance.
 
 ## Benchmark dataset
 
