@@ -1,0 +1,28 @@
+{
+  "dataset_name": "example_rag_benchmark",
+  "description": "Small schema-valid benchmark fixture for local evaluation development.",
+  "version": "1.0",
+  "queries": [
+    {
+      "query_id": "q1",
+      "question": "What retrieval strategy does the system use?",
+      "relevant_sources": ["retrieval.md"],
+      "relevant_pages": [1],
+      "answer_references": ["hybrid retrieval"]
+    },
+    {
+      "query_id": "q2",
+      "question": "How is retrieval quality evaluated?",
+      "relevant_sources": ["evaluation.md"],
+      "relevant_pages": [1],
+      "answer_references": ["Recall@K", "MRR"]
+    },
+    {
+      "query_id": "q3",
+      "question": "Which component generates the final answer?",
+      "relevant_sources": ["rag.md"],
+      "relevant_pages": [2],
+      "answer_references": ["LLM"]
+    }
+  ]
+}
