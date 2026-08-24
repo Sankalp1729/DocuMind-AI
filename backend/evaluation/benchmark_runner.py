@@ -31,7 +31,7 @@ class BenchmarkRunContext:
 
 
 def load_qrels(path: Path) -> dict:
-    """Load qrels (ground truth) expected in JSON format: {query_id: [doc_ids]}"""
+    """Load qrels (ground truth) expected in JSON format: {query_id: [doc_ids]}."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -58,24 +58,43 @@ def _citation_is_relevant(citation: Dict[str, Any], query_spec) -> bool:
 
 
 def _relevant_target_count(query_spec) -> int:
-    if query_spec.relevant_sources:
-        return len(set(query_spec.relevant_sources))
-    if query_spec.relevant_pages:
-        return len(set(query_spec.relevant_pages))
-    return 0
+    """Return the number of unique relevance targets represented by the query spec."""
+    source_targets = {source.lower() for source in query_spec.relevant_sources}
+    page_targets = {page for page in query_spec.relevant_pages}
+
+    # A source and a page can describe the same evidence, so prefer the more
+    # concrete source/page dimension instead of summing both lists.
+    if source_targets:
+        return len(source_targets)
+    return len(page_targets)
 
 
 def _precision_at_k(relevance_flags: List[int], k: int) -> float:
-    if not relevance_flags:
-        return 0.0
     top_flags = relevance_flags[:k]
+    if not top_flags:
+        return 0.0
     return sum(top_flags) / len(top_flags)
 
 
 def _recall_at_k(relevance_flags: List[int], relevant_count: int, k: int) -> float:
     if relevant_count == 0:
         return 0.0
-    return sum(relevance_flags[:k]) / relevant_count
+    return min(1.0, sum(relevance_flags[:k]) / relevant_count)
+
+
+def _average_precision(relevance_flags: List[int], relevant_count: int) -> float:
+    """Compute AP from the ranked relevance flags, not mean precision."""
+    if not relevance_flags or relevant_count <= 0:
+        return 0.0
+
+    hits = 0
+    score = 0.0
+    for rank, is_relevant in enumerate(relevance_flags, start=1):
+        if is_relevant:
+            hits += 1
+            score += hits / rank
+
+    return score / min(relevant_count, hits) if hits else 0.0
 
 
 def _mrr(relevance_flags: List[int]) -> float:
@@ -102,6 +121,9 @@ def run_benchmark(
     regression_against: Optional[str] = None,
     answer_fn=None,
 ) -> BenchmarkResult:
+    if top_k < 1:
+        raise ValueError("top_k must be >= 1")
+
     if answer_fn is None:
         from backend.rag.rag_chain import generate_answer as answer_fn
 
@@ -115,7 +137,7 @@ def run_benchmark(
     grounded_count = 0
     hallucination_count = 0
 
-    for index, query_spec in enumerate(dataset.queries):
+    for query_spec in dataset.queries:
         retrieval_started = time.perf_counter()
         retrieval_result = rag_service.retrieve(query_spec.question)
         if not retrieval_result:
@@ -169,7 +191,8 @@ def run_benchmark(
         relevant_count = _relevant_target_count(query_spec)
         precision_at_k = _precision_at_k(relevance_flags, top_k)
         recall_at_k = _recall_at_k(relevance_flags, relevant_count, top_k)
-        mrr = _mrr(relevance_flags)
+        average_precision = _average_precision(relevance_flags[:top_k], relevant_count)
+        mrr = _mrr(relevance_flags[:top_k])
         ndcg = _ndcg_at_k(relevance_flags, top_k)
 
         grounded_count += 1 if groundedness.is_grounded else 0
@@ -177,8 +200,8 @@ def run_benchmark(
 
         total_latency_ms = retrieval_latency + generation_latency
         retrieved_sources = [source.get("source") or "" for source in sources if source.get("source")]
-        reranking_latency = 0.0
         retrieval_info = retrieval_explanation.model_dump() if hasattr(retrieval_explanation, "model_dump") else (retrieval_explanation or {})
+        reranking_latency = 0.0
         if isinstance(retrieval_info, dict):
             reranking_latency = float(retrieval_info.get("stage_timings_ms", {}).get("reranking_ms", 0.0))
         total_reranking_latency += reranking_latency
@@ -203,14 +226,35 @@ def run_benchmark(
 
     if query_results:
         retrieval_metrics = {
-            "precision_at_k": sum(result.precision_at_k for result in query_results) / len(query_results),
-            "recall_at_k": sum(result.recall_at_k for result in query_results) / len(query_results),
-            "map": sum(result.precision_at_k for result in query_results) / len(query_results),
+            f"precision_at_{top_k}": sum(result.precision_at_k for result in query_results) / len(query_results),
+            f"recall_at_{top_k}": sum(result.recall_at_k for result in query_results) / len(query_results),
+            "map": sum(
+                _average_precision(
+                    [1 if source in {s.lower() for s in query.relevant_sources} else 0 for source in result.retrieved_sources],
+                    len(query.relevant_sources),
+                )
+                for result, query in zip(query_results, dataset.queries)
+            ) / len(query_results),
             "mrr": sum(result.mrr for result in query_results) / len(query_results),
             "ndcg": sum(result.ndcg for result in query_results) / len(query_results),
         }
     else:
-        retrieval_metrics = {"precision_at_k": 0.0, "recall_at_k": 0.0, "map": 0.0, "mrr": 0.0, "ndcg": 0.0}
+        retrieval_metrics = {
+            f"precision_at_{top_k}": 0.0,
+            f"recall_at_{top_k}": 0.0,
+            "map": 0.0,
+            "mrr": 0.0,
+            "ndcg": 0.0,
+        }
+
+    # Preserve the existing precision_at_10 / recall_at_10 API contract when
+    # callers use another K, while exposing the actual configured K as well.
+    if top_k == 10:
+        retrieval_metrics["precision_at_10"] = retrieval_metrics["precision_at_10"]
+        retrieval_metrics["recall_at_10"] = retrieval_metrics["recall_at_10"]
+    else:
+        retrieval_metrics["precision_at_10"] = retrieval_metrics[f"precision_at_{top_k}"]
+        retrieval_metrics["recall_at_10"] = retrieval_metrics[f"recall_at_{top_k}"]
 
     benchmark_id = benchmark_id or f"{dataset.dataset_name}-{int(time.time())}"
     total_latency_ms = (time.perf_counter() - benchmark_started) * 1000
@@ -222,13 +266,7 @@ def run_benchmark(
         dataset_name=dataset.dataset_name,
         timestamp=datetime.now(timezone.utc),
         num_queries=len(dataset.queries),
-        retrieval_metrics={
-            "precision_at_10": retrieval_metrics.get("precision_at_k", 0.0),
-            "recall_at_10": retrieval_metrics.get("recall_at_k", 0.0),
-            "map": retrieval_metrics.get("map", 0.0),
-            "mrr": retrieval_metrics.get("mrr", 0.0),
-            "ndcg": retrieval_metrics.get("ndcg", 0.0),
-        },
+        retrieval_metrics=retrieval_metrics,
         retrieval_latency_ms=total_retrieval_latency / max(len(dataset.queries), 1),
         reranking_latency_ms=total_reranking_latency / max(len(dataset.queries), 1) if total_reranking_latency else 0.0,
         total_latency_ms=total_latency_ms,
