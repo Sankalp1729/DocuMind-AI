@@ -202,9 +202,11 @@ def run_benchmark(
         "mrr": sum(r.mrr for r in query_results) / count if count else 0.0,
         "ndcg": sum(r.ndcg for r in query_results) / count if count else 0.0,
     }
-    # Keep legacy dashboard fields while also retaining the exact configured K.
-    retrieval_metrics["precision_at_10"] = retrieval_metrics[metric_key_precision]
-    retrieval_metrics["recall_at_10"] = retrieval_metrics[metric_key_recall]
+    # Preserve legacy @10 fields only when the benchmark actually uses K=10.
+    # Otherwise, an @K score stored as @10 would make dashboards report a misleading cutoff.
+    if top_k == 10:
+        retrieval_metrics["precision_at_10"] = retrieval_metrics[metric_key_precision]
+        retrieval_metrics["recall_at_10"] = retrieval_metrics[metric_key_recall]
 
     benchmark_id = benchmark_id or f"{dataset.dataset_name}-{int(time.time())}"
     num_queries = len(dataset.queries)

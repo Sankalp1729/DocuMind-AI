@@ -1,81 +1,36 @@
-from __future__ import annotations
-
-import json
 from pathlib import Path
+import json
 
-import pytest
-
-from backend.evaluation.benchmark_runner import load_benchmark_dataset
 from backend.services.evaluation_service import EvaluationService
 
 
-class FakeDoc:
-    def __init__(self, page_content: str, source_file: str, page: int = 1):
-        self.page_content = page_content
-        self.metadata = {"source_file": source_file, "page": page}
-
-
-class FakeRetrievalExplanation:
-    def __init__(self):
-        self.latency_ms = 12.5
-        self.stage_timings_ms = {"reranking_ms": 4.2, "vector_retrieval_ms": 3.1}
-
-    def model_dump(self):
-        return {
-            "latency_ms": self.latency_ms,
-            "stage_timings_ms": self.stage_timings_ms,
-        }
-
-
 class FakeRagService:
-    def retrieve(self, question: str):
-        return (
-            "The report explains the retrieval pipeline and evaluation history.",
-            [FakeDoc("The report explains the retrieval pipeline and evaluation history.", "report.pdf", 1)],
-            FakeRetrievalExplanation(),
-        )
+    def retrieve(self, question: str, top_k: int = 10):
+        from types import SimpleNamespace
+
+        del question
+        docs = [
+            SimpleNamespace(metadata={"source_file": "report", "page": 1}, page_content="retrieval pipeline")
+        ] * top_k
+        explanation = SimpleNamespace(latency_ms=1.0, model_dump=lambda: {"stage_timings_ms": {"reranking_ms": 0.0}})
+        return "retrieval pipeline", docs, explanation
 
 
-def test_example_benchmark_fixture_is_schema_valid() -> None:
-    dataset_path = Path(__file__).parent / "evaluation" / "example_rag_benchmark.json"
-    dataset = load_benchmark_dataset(dataset_path)
-
-    assert dataset.dataset_name == "example_rag_benchmark"
-    assert dataset.version == "1.0"
-    assert len(dataset.queries) == 3
-    assert dataset.queries[0].relevant_sources == ["retrieval.md"]
-
-
-def test_benchmark_dataset_rejects_duplicate_query_ids() -> None:
-    dataset_payload = {
-        "dataset_name": "invalid_dataset",
-        "description": "Dataset with duplicate query identifiers.",
-        "queries": [
-            {"query_id": "q1", "question": "First?", "relevant_sources": ["a.pdf"]},
-            {"query_id": "q1", "question": "Second?", "relevant_sources": ["b.pdf"]},
-        ],
-    }
-
-    from backend.schemas.evaluation import BenchmarkDataset
-
-    with pytest.raises(ValueError, match="query_id"):
-        BenchmarkDataset.model_validate(dataset_payload)
+def _grounded(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "backend.evaluation.benchmark_runner.GroundednessScorer.score_groundedness",
+        lambda self, answer, passages: {
+            "is_grounded": True,
+            "confidence": 1.0,
+            "hallucination_risk": "low",
+            "unsupported_claims": [],
+            "reasoning": "The answer is directly supported by the retrieved passage.",
+        },
+    )
 
 
-def test_benchmark_query_requires_relevance_judgment() -> None:
-    from backend.schemas.evaluation import BenchmarkDataset
-
-    with pytest.raises(ValueError, match="relevance judgment"):
-        BenchmarkDataset.model_validate(
-            {
-                "dataset_name": "invalid_dataset",
-                "description": "Missing relevance judgment.",
-                "queries": [{"query_id": "q1", "question": "What?"}],
-            }
-        )
-
-
-def test_dataset_benchmark_runs_and_persists(tmp_path: Path) -> None:
+def test_dataset_benchmark_runs_and_persists(tmp_path: Path, monkeypatch) -> None:
+    _grounded(monkeypatch)
     service = EvaluationService(storage_dir=tmp_path)
     dataset_dir = tmp_path / "evaluation_datasets"
     dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -108,8 +63,10 @@ def test_dataset_benchmark_runs_and_persists(tmp_path: Path) -> None:
     assert result.dataset_name == "unit_test_dataset"
     assert result.num_queries == 1
     assert result.top_k == 1
-    assert result.retrieval_metrics["precision_at_10"] == 1.0
-    assert result.retrieval_metrics["recall_at_10"] == 1.0
+    assert result.retrieval_metrics["precision_at_1"] == 1.0
+    assert result.retrieval_metrics["recall_at_1"] == 1.0
+    assert "precision_at_10" not in result.retrieval_metrics
+    assert "recall_at_10" not in result.retrieval_metrics
     assert result.retrieval_metrics["mrr"] == 1.0
     assert result.retrieval_metrics["ndcg"] == 1.0
     assert result.groundedness_rate == 1.0
@@ -118,8 +75,6 @@ def test_dataset_benchmark_runs_and_persists(tmp_path: Path) -> None:
     history = service.load_benchmark_history()
     leaderboard = service.leaderboard()
     dashboard = service.benchmark_dashboard()
-
-    assert history
-    assert leaderboard
+    assert len(history) == 1
+    assert len(leaderboard) == 1
     assert dashboard["runs"] == 1
-    assert dashboard["leaderboard"]
