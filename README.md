@@ -4,7 +4,20 @@ DocuMind AI is an enterprise RAG workspace for document chat, retrieval diagnost
 
 ## Why this project is different
 
-DocuMind is designed as an **evaluated RAG system**, not only a PDF chatbot. Retrieval changes can be measured with ranking metrics and regression tests, while the existing platform exposes retrieval diagnostics, groundedness, latency, usage, and operational telemetry.
+DocuMind is designed as an **evaluated RAG system**, not only a PDF chatbot. Retrieval changes can be measured with ranking metrics and regression tests, while the platform exposes retrieval diagnostics, groundedness, latency, usage, and operational telemetry.
+
+## Placement / Engineering Highlights
+
+- **Hybrid retrieval:** dense vector search + BM25/lexical retrieval + Reciprocal Rank Fusion (RRF)
+- **Reranking:** optional cross-encoder stage for candidate reordering
+- **RAG quality evaluation:** Precision@K, Recall@K, MAP, MRR, nDCG, groundedness, hallucination risk, and latency
+- **Reproducible benchmarks:** versioned datasets with explicit relevance judgments and persisted `top_k`
+- **Regression protection:** pytest coverage for ranking metrics, benchmark contracts, and retrieval API behavior
+- **Observability:** structured retrieval traces, stage timings, confidence signals, Prometheus metrics, and OpenTelemetry hooks
+- **Production-oriented services:** FastAPI backend, caching, usage tracking, persistence, feature flags, Docker deployment
+- **Developer workflow:** GitHub Actions CI validates the test suite on pull requests
+
+> **Important:** Benchmark percentages are intentionally not claimed here until they are measured on a fixed corpus and configuration. This keeps the project evidence-based rather than presenting synthetic numbers as production performance.
 
 ## What It Ships
 
