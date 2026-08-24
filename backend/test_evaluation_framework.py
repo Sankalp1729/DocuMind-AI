@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
+import pytest
+
+from backend.evaluation.benchmark_runner import load_benchmark_dataset
 from backend.services.evaluation_service import EvaluationService
 
 
@@ -31,6 +33,45 @@ class FakeRagService:
             "The report explains the retrieval pipeline and evaluation history.",
             [FakeDoc("The report explains the retrieval pipeline and evaluation history.", "report.pdf", 1)],
             FakeRetrievalExplanation(),
+        )
+
+
+def test_example_benchmark_fixture_is_schema_valid() -> None:
+    dataset_path = Path(__file__).parent / "evaluation" / "example_rag_benchmark.json"
+    dataset = load_benchmark_dataset(dataset_path)
+
+    assert dataset.dataset_name == "example_rag_benchmark"
+    assert dataset.version == "1.0"
+    assert len(dataset.queries) == 3
+    assert dataset.queries[0].relevant_sources == ["retrieval.md"]
+
+
+def test_benchmark_dataset_rejects_duplicate_query_ids() -> None:
+    dataset_payload = {
+        "dataset_name": "invalid_dataset",
+        "description": "Dataset with duplicate query identifiers.",
+        "queries": [
+            {"query_id": "q1", "question": "First?", "relevant_sources": ["a.pdf"]},
+            {"query_id": "q1", "question": "Second?", "relevant_sources": ["b.pdf"]},
+        ],
+    }
+
+    from backend.schemas.evaluation import BenchmarkDataset
+
+    with pytest.raises(ValueError, match="query_id"):
+        BenchmarkDataset.model_validate(dataset_payload)
+
+
+def test_benchmark_query_requires_relevance_judgment() -> None:
+    from backend.schemas.evaluation import BenchmarkDataset
+
+    with pytest.raises(ValueError, match="relevance judgment"):
+        BenchmarkDataset.model_validate(
+            {
+                "dataset_name": "invalid_dataset",
+                "description": "Missing relevance judgment.",
+                "queries": [{"query_id": "q1", "question": "What?"}],
+            }
         )
 
 
@@ -66,6 +107,7 @@ def test_dataset_benchmark_runs_and_persists(tmp_path: Path) -> None:
 
     assert result.dataset_name == "unit_test_dataset"
     assert result.num_queries == 1
+    assert result.top_k == 1
     assert result.retrieval_metrics["precision_at_10"] == 1.0
     assert result.retrieval_metrics["recall_at_10"] == 1.0
     assert result.retrieval_metrics["mrr"] == 1.0

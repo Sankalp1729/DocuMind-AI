@@ -1,12 +1,33 @@
 # DocuMind AI
 
-DocuMind AI is an enterprise RAG workspace for document chat, retrieval diagnostics, admin analytics, and production deployment.
+DocuMind AI is an enterprise RAG workspace for document chat, retrieval diagnostics, evaluation, admin analytics, and production deployment.
+
+## Why this project is different
+
+DocuMind is designed as an **evaluated RAG system**, not only a PDF chatbot. Retrieval changes can be measured with ranking metrics and regression tests, while the platform exposes retrieval diagnostics, groundedness, latency, usage, and operational telemetry.
+
+## Placement / Engineering Highlights
+
+- **Hybrid retrieval:** dense vector search + BM25/lexical retrieval + Reciprocal Rank Fusion (RRF)
+- **Reranking:** optional cross-encoder stage for candidate reordering
+- **RAG quality evaluation:** Precision@K, Recall@K, MAP, MRR, nDCG, groundedness, hallucination risk, and latency
+- **Reproducible benchmarks:** versioned datasets with explicit relevance judgments and persisted `top_k`
+- **Regression protection:** pytest coverage for ranking metrics, benchmark contracts, and retrieval API behavior
+- **Observability:** structured retrieval traces, stage timings, confidence signals, Prometheus metrics, and OpenTelemetry hooks
+- **Production-oriented services:** FastAPI backend, caching, usage tracking, persistence, feature flags, Docker deployment
+- **Developer workflow:** GitHub Actions CI validates the test suite on pull requests
+
+> **Important:** Benchmark percentages are intentionally not claimed here until they are measured on a fixed corpus and configuration. This keeps the project evidence-based rather than presenting synthetic numbers as production performance.
 
 ## What It Ships
 
 - Premium Streamlit front end with a control-plane cockpit
 - FastAPI backend with retrieval caching, token usage tracking, telemetry, and admin summaries
 - Feature-flagged production knobs for agentic RAG, hybrid retrieval, metrics, and Redis-backed caching
+- Hybrid retrieval and reranking infrastructure
+- Benchmark evaluation with Precision@K, Recall@K, MAP, MRR, nDCG, groundedness, hallucination risk, and latency
+- Regression-focused unit tests for ranking metrics and benchmark edge cases
+- Versioned benchmark fixture and evaluation methodology
 - Billing and quota scaffolding driven by persisted usage data
 - A/B retrieval experiment scaffolding and benchmark history
 - Deployment, demo, and load-testing documentation
@@ -15,36 +36,56 @@ DocuMind AI is an enterprise RAG workspace for document chat, retrieval diagnost
 
 ```mermaid
 flowchart LR
-	U[User] --> FE[Streamlit Frontend]
-	FE --> API[FastAPI Backend]
-	API --> RAG[RAG + Agentic RAG]
-	RAG --> VS[Vector Store]
-	RAG --> CACHE[Redis / In-process Cache]
-	RAG --> OLLAMA[Ollama / Llama 3]
-	API --> DB[(PostgreSQL / SQLite)]
-	API --> MET[Metrics + Telemetry]
-	API --> ADM[Admin Analytics Cockpit]
-	ADM --> USG[Usage / Quota / Billing Scaffold]
-	ADM --> EXP[A/B Retrieval Experiments]
+\tU[User] --> FE[Streamlit Frontend]
+\tFE --> API[FastAPI Backend]
+\tAPI --> RAG[RAG + Agentic RAG]
+\tRAG --> RET[Hybrid Retrieval + Reranking]
+\tRET --> VS[Vector Store]
+\tRET --> CACHE[Redis / In-process Cache]
+\tRAG --> OLLAMA[Ollama / Llama 3]
+\tAPI --> DB[(PostgreSQL / SQLite)]
+\tAPI --> MET[Metrics + Telemetry]
+\tAPI --> EVAL[Benchmark Evaluation]
+\tEVAL --> ADM[Admin Analytics Cockpit]
+\tADM --> USG[Usage / Quota / Billing Scaffold]
+\tADM --> EXP[A/B Retrieval Experiments]
 ```
 
 ```mermaid
 sequenceDiagram
-	participant User
-	participant Frontend
-	participant Backend
-	participant Cache
-	participant VectorStore
-	participant LLM
-
-	User->>Frontend: Ask a question
-	Frontend->>Backend: POST /chat/ask
-	Backend->>Cache: Check response / retrieval cache
-	Backend->>VectorStore: Retrieve supporting chunks
-	Backend->>LLM: Generate grounded answer
-	Backend->>Cache: Store answer and retrieval payload
-	Backend-->>Frontend: Answer + citations + telemetry
+\tparticipant User
+\tparticipant Frontend
+\tparticipant Backend
+\tparticipant Cache
+\tparticipant Retriever
+\tparticipant Reranker
+\tparticipant LLM
+\n\tUser->>Frontend: Ask a question
+\tFrontend->>Backend: POST /chat/ask
+\tBackend->>Cache: Check response / retrieval cache
+\tBackend->>Retriever: Dense + lexical retrieval
+\tRetriever->>Reranker: Candidate passages
+\tReranker-->>Backend: Ranked evidence
+\tBackend->>LLM: Generate grounded answer
+\tBackend->>Cache: Store answer and retrieval payload
+\tBackend-->>Frontend: Answer + citations + telemetry
 ```
+
+## Evaluation
+
+The benchmark layer reports:
+
+- **Precision@K** — relevance density in the retrieved top-K
+- **Recall@K** — relevant evidence recovered in the top-K
+- **MAP** — ranking-sensitive average precision that penalizes missed relevant targets
+- **MRR** — how early the first relevant result appears
+- **nDCG@K** — ranking quality relative to an ideal ordering
+- **Groundedness / hallucination risk** — answer-level quality signals
+- **Retrieval / reranking / generation latency** — pipeline performance
+
+See [`docs/evaluation.md`](docs/evaluation.md) for the metric contract and benchmark workflow.
+
+The schema-valid example fixture is at `backend/evaluation/example_rag_benchmark.json`. It is a development fixture, **not a published performance claim**. Benchmark percentages should only be added to the README after measuring a fixed dataset and configuration.
 
 ## Quickstart
 
@@ -66,6 +107,12 @@ Docker stack:
 docker compose up --build
 ```
 
+Tests:
+
+```powershell
+pytest -q
+```
+
 ## Control Plane
 
 - Admin metrics and debug state: `GET /admin/metrics`, `GET /admin/debug/state`
@@ -77,6 +124,7 @@ docker compose up --build
 ## Production Docs
 
 - [Architecture](docs/architecture.md)
+- [Evaluation methodology](docs/evaluation.md)
 - [Deployment](docs/deployment.md)
 - [Demo Runbook](docs/demo-runbook.md)
 - [Load Testing](docs/load-testing.md)
@@ -90,7 +138,6 @@ docker compose up --build
 - `vector_store/`
 - `docs/`
 - `scripts/`
-- `tests/`
 
 ## Environment
 
