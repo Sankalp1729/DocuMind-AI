@@ -91,6 +91,7 @@ class BenchmarkResult(BaseModel):
     dataset_name: str
     timestamp: datetime
     num_queries: int
+    top_k: int = Field(ge=1)
     retrieval_metrics: Dict[str, float]
     retrieval_latency_ms: float
     reranking_latency_ms: Optional[float] = None
