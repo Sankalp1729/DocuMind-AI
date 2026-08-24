@@ -77,4 +77,4 @@ def test_dataset_benchmark_runs_and_persists(tmp_path: Path, monkeypatch) -> Non
     dashboard = service.benchmark_dashboard()
     assert len(history) == 1
     assert len(leaderboard) == 1
-    assert dashboard["count"] == 1
+    assert dashboard["runs"] == 1
