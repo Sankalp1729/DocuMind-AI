@@ -12,14 +12,15 @@ from backend.evaluation.metrics import average_precision, ndcg_at_k, precision_a
 
 
 def test_average_precision_rewards_early_relevant_results() -> None:
-    assert _average_precision([1, 0, 1], relevant_count=2) == 1.0
-    assert _average_precision([0, 1, 1], relevant_count=2) == 2 / 3
+    assert _average_precision([1, 0, 1], relevant_count=2) == pytest.approx(5 / 6)
+    assert _average_precision([1, 1], relevant_count=2) == pytest.approx(1.0)
+    assert _average_precision([1, 0, 1], relevant_count=2) > _average_precision([0, 1, 1], relevant_count=2)
 
 
 def test_average_precision_penalizes_missed_relevant_documents() -> None:
-    assert average_precision([1, 0, 0], {1, 2}) == 0.5
-    assert average_precision([1, 0, 2], {1, 2}) == 5 / 6
-    assert average_precision([1, 0, 2], {1, 2, 3}) == 5 / 9
+    assert average_precision([1, 0, 0], {1, 2}) == pytest.approx(0.5)
+    assert average_precision([1, 0, 2], {1, 2}) == pytest.approx(5 / 6)
+    assert average_precision([1, 0, 2], {1, 2, 3}) == pytest.approx(5 / 9)
 
 
 def test_precision_and_recall_are_bounded() -> None:
