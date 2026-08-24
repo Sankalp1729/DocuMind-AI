@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
+from backend.evaluation.benchmark_runner import load_benchmark_dataset
 from backend.services.evaluation_service import EvaluationService
 
 
@@ -32,6 +32,16 @@ class FakeRagService:
             [FakeDoc("The report explains the retrieval pipeline and evaluation history.", "report.pdf", 1)],
             FakeRetrievalExplanation(),
         )
+
+
+def test_example_benchmark_fixture_is_schema_valid() -> None:
+    dataset_path = Path(__file__).parent / "evaluation" / "example_rag_benchmark.json"
+    dataset = load_benchmark_dataset(dataset_path)
+
+    assert dataset.dataset_name == "example_rag_benchmark"
+    assert dataset.version == "1.0"
+    assert len(dataset.queries) == 3
+    assert dataset.queries[0].relevant_sources == ["retrieval.md"]
 
 
 def test_dataset_benchmark_runs_and_persists(tmp_path: Path) -> None:
