@@ -55,7 +55,7 @@ class FakeService:
         return self._reranker
 
 
-def test_hybrid_does_not_call_reranker(monkeypatch):
+def test_hybrid_does_not_call_reranker():
     service = FakeService()
     calls = {"count": 0}
 
@@ -88,6 +88,19 @@ def test_missing_reranker_is_observable():
     assert len(docs) == 1
     assert info["reranker"] is False
     assert info["reranker_available"] is False
+
+
+def test_dense_and_bm25_are_independently_selectable():
+    service = FakeService()
+    runner = ControlledRetrieval(service)
+
+    dense_docs, dense_info = runner.retrieve("query", 2, RetrievalStrategy.DENSE)
+    sparse_docs, sparse_info = runner.retrieve("query", 2, RetrievalStrategy.BM25)
+
+    assert len(dense_docs) == 2
+    assert dense_info["num_sparse"] == 0
+    assert len(sparse_docs) == 2
+    assert sparse_info["num_dense"] == 0
 
 
 def test_top_k_must_be_positive():
